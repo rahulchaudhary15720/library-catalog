@@ -1,126 +1,257 @@
-// Component for detailed book information with borrowing functionality
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 
-// Functional component to display detailed book information and handle borrowing
+// Volume information display with borrowing functionality
 function BookDetails({ books, setBooks, borrowRecords, setBorrowRecords }) {
-  // Get book ID from URL
+  // Navigation and routing hooks
+  const navigate = useNavigate();
   const { id } = useParams();
-  const bookId = parseInt(id);
-
-  // Find the specific book from the provided list
-  const book = books.find(b => b.id === bookId);
-
-  // Local state to track book availability
-  const [availability, setAvailability] = useState(book ? book.available : false);
-  // State to manage the borrower's name input
-  const [borrowerName, setBorrowerName] = useState('');
-  // Filter borrowing history for the current book
-  const bookBorrowHistory = borrowRecords.filter(record => record.bookId === bookId);
-
-  // Function to handle the book borrowing process
-  const handleBorrowBook = () => {
-    if (availability && borrowerName.trim()) {
-      // Update local availability and book data
-      setAvailability(false);
-      setBooks(prevBooks =>
-        prevBooks.map(b =>
-          b.id === bookId ? { ...b, available: false, borrowCount: (b.borrowCount || 0) + 1 } : b
-        )
-      );
-
-      // Add a new borrowing record to the history
-      const currentDate = new Date().toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' });
-      setBorrowRecords(prevRecords => [
-        ...prevRecords,
-        { bookId, borrower: borrowerName.trim(), date: currentDate },
-      ]);
-
-      // Clear the borrower name input
-      setBorrowerName('');
-      alert(`Book "${book?.title}" borrowed by ${borrowerName.trim()} successfully!`); // User feedback
-    } else if (!borrowerName.trim()) {
-      alert('Please enter your name to borrow the book.');
-    } else if (!availability) {
-      alert('This book is currently unavailable.');
+  const volumeId = parseInt(id);
+  
+  // Find target volume in collection
+  const currentVolume = books.find(volume => volume.id === volumeId);
+  
+  // Establish local state management
+  const [isLendable, setIsLendable] = useState(false);
+  const [readerName, setReaderName] = useState('');
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showHistorySection, setShowHistorySection] = useState(false);
+  
+  // Extract lending history for current volume
+  const lendingHistory = borrowRecords.filter(entry => entry.bookId === volumeId);
+  
+  // Synchronize availability state with props
+  useEffect(() => {
+    if (currentVolume) {
+      setIsLendable(currentVolume.available);
     }
+  }, [currentVolume]);
+  
+  // Process lending request
+  const processLendingRequest = () => {
+    // Input validation
+    if (!readerName.trim()) {
+      setErrorMessage('Please provide your name to proceed with borrowing');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+    
+    if (!isLendable) {
+      setErrorMessage('This title is currently unavailable for borrowing');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+    
+    // Update volume availability
+    setIsLendable(false);
+    
+    // Update global books collection
+    setBooks(currentCollection => 
+      currentCollection.map(volume => 
+        volume.id === volumeId 
+          ? { 
+              ...volume, 
+              available: false, 
+              borrowCount: (volume.borrowCount || 0) + 1 
+            } 
+          : volume
+      )
+    );
+    
+    // Create timestamp for lending record
+    const formattedDate = new Date().toISOString().split('T')[0];
+    
+    // Add new lending record
+    setBorrowRecords(existingRecords => [
+      ...existingRecords,
+      { 
+        bookId: volumeId, 
+        borrower: readerName.trim(), 
+        date: formattedDate 
+      }
+    ]);
+    
+    // Reset form and show success feedback
+    setReaderName('');
+    setShowSuccessMessage(true);
+    setTimeout(() => setShowSuccessMessage(false), 3000);
+    
+    // Automatically expand history after lending
+    setShowHistorySection(true);
   };
-
-  // Handle case where book is not found
-  if (!book) {
+  
+  // Return to catalog
+  const returnToCatalog = () => {
+    navigate('/');
+  };
+  
+  // Toggle history visibility
+  const toggleHistoryView = () => {
+    setShowHistorySection(!showHistorySection);
+  };
+  
+  // Handle case where volume is not found
+  if (!currentVolume) {
     return (
-      <div className="bg-slate-50 min-h-screen py-8">
-        <div className="container mx-auto px-6">
-          <p className="text-red-600 text-center text-lg font-semibold mt-6">Book not found.</p>
+      <div className="bg-gradient-to-b from-indigo-50 to-white min-h-screen p-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-white p-8 rounded-xl shadow-lg text-center">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Volume Not Found</h2>
+            <p className="text-gray-600 mb-6">The requested title could not be located in our collection.</p>
+            <button
+              onClick={returnToCatalog}
+              className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Return to Catalog
+            </button>
+          </div>
         </div>
       </div>
     );
   }
-
+  
   return (
-    // Main container with consistent styling
-    <div className="bg-slate-50 min-h-screen py-8">
-      {/* Centered content area */}
-      <div className="container mx-auto px-6">
-        {/* Page heading */}
-        <h1 className="text-2xl font-semibold text-gray-800 mb-5">Book Details</h1>
-
-        {/* Book details card */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          {/* Book title */}
-          <h2 className="text-xl font-semibold text-gray-700 mb-3">{book.title}</h2>
-
-          {/* Book information list */}
-          <ul className="space-y-1 text-gray-600 text-sm list-inside">
-            <li><strong>Author:</strong> {book.author}</li>
-            <li><strong>Genre:</strong> {book.genre}</li>
-            <li><strong>ISBN:</strong> {book.isbn}</li>
-            <li><strong>Publisher:</strong> {book.publisher}</li>
-            <li><strong>Borrow Count:</strong> {book.borrowCount || 0}</li>
-            <li>
-              <strong>Availability:</strong>{' '}
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${availability ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                {availability ? 'Available' : 'Unavailable'}
+    <div className="bg-gradient-to-b from-indigo-50 to-white min-h-screen p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Page header with navigation */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-indigo-800">Volume Details</h1>
+          <button
+            onClick={returnToCatalog}
+            className="px-4 py-2 text-indigo-600 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors flex items-center"
+          >
+            <span>Back to Catalog</span>
+          </button>
+        </div>
+        
+        {/* Main content container */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          {/* Volume information header */}
+          <div className="p-6 md:p-8 border-b border-gray-100">
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">{currentVolume.title}</h2>
+            <p className="text-lg text-gray-600 mb-2">by {currentVolume.author}</p>
+            
+            {/* Status indicator */}
+            <div className="mb-4">
+              <span 
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                  isLendable 
+                    ? 'bg-green-100 text-green-800 border border-green-200' 
+                    : 'bg-red-100 text-red-800 border border-red-200'
+                }`}
+              >
+                {isLendable ? 'Available for Borrowing' : 'Currently on Loan'}
               </span>
-            </li>
-          </ul>
-
-          {/* Borrowing controls */}
-          <div className="mt-4 flex flex-col sm:flex-row gap-3">
-            {/* Input for borrower's name */}
-            <input
-              type="text"
-              placeholder="Your Name"
-              value={borrowerName}
-              onChange={(e) => setBorrowerName(e.target.value)}
-              className="flex-grow sm:flex-none w-full sm:w-64 px-3 py-2 border rounded-md text-gray-700 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            {/* Borrow button */}
-            <button
-              onClick={handleBorrowBook}
-              disabled={!availability || !borrowerName.trim()}
-              className={`px-4 py-2 rounded-md text-white ${availability && borrowerName.trim() ? 'bg-indigo-500 hover:bg-indigo-600' : 'bg-gray-400 cursor-not-allowed'} transition duration-200`}
-            >
-              Borrow Book
-            </button>
+            </div>
           </div>
-
+          
+          {/* Volume details section */}
+          <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left column: Volume metadata */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Publication Details</h3>
+              <dl className="grid grid-cols-3 gap-2 text-sm">
+                <dt className="col-span-1 text-gray-500">Genre:</dt>
+                <dd className="col-span-2 text-gray-800 font-medium">{currentVolume.genre}</dd>
+                
+                <dt className="col-span-1 text-gray-500">ISBN:</dt>
+                <dd className="col-span-2 text-gray-800 font-medium">{currentVolume.isbn || 'Not available'}</dd>
+                
+                <dt className="col-span-1 text-gray-500">Publisher:</dt>
+                <dd className="col-span-2 text-gray-800 font-medium">{currentVolume.publisher || 'Not available'}</dd>
+                
+                <dt className="col-span-1 text-gray-500">Popularity:</dt>
+                <dd className="col-span-2 text-gray-800 font-medium">
+                  Borrowed {currentVolume.borrowCount || 0} {currentVolume.borrowCount === 1 ? 'time' : 'times'}
+                </dd>
+              </dl>
+            </div>
+            
+            {/* Right column: Borrowing interface */}
+            <div className={`p-4 rounded-lg ${isLendable ? 'bg-green-50' : 'bg-gray-50'}`}>
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Borrowing Request</h3>
+              
+              {showSuccessMessage && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-200 rounded-lg text-green-800">
+                  <p>Success! "{currentVolume.title}" has been checked out.</p>
+                </div>
+              )}
+              
+              {errorMessage && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-200 rounded-lg text-red-800">
+                  <p>{errorMessage}</p>
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="readerName" className="block text-sm font-medium text-gray-700 mb-1">
+                    Your Name
+                  </label>
+                  <input
+                    id="readerName"
+                    type="text"
+                    value={readerName}
+                    onChange={(e) => setReaderName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    disabled={!isLendable}
+                  />
+                </div>
+                
+                <button
+                  onClick={processLendingRequest}
+                  disabled={!isLendable || !readerName.trim()}
+                  className={`w-full py-2 px-4 rounded-lg text-white font-medium ${
+                    isLendable && readerName.trim()
+                      ? 'bg-indigo-600 hover:bg-indigo-700'
+                      : 'bg-gray-400 cursor-not-allowed'
+                  } transition-colors`}
+                >
+                  {isLendable ? 'Borrow This Volume' : 'Currently Unavailable'}
+                </button>
+              </div>
+            </div>
+          </div>
+          
           {/* Borrowing history section */}
-          <h3 className="text-lg font-semibold text-gray-700 mt-6 mb-2">Borrowing History</h3>
-
-          {/* List of borrowing records */}
-          <ul className="list-disc list-inside text-gray-600 text-sm space-y-1">
-            {bookBorrowHistory.length > 0 ? (
-              bookBorrowHistory.map((record, index) => (
-                <li key={index}>
-                  Borrowed by <span className="font-medium">{record.borrower}</span> on{' '}
-                  {new Date(record.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-                </li>
-              ))
-            ) : (
-              <li>No borrowing history available for this book.</li>
+          <div className="border-t border-gray-100">
+            <button 
+              onClick={toggleHistoryView}
+              className="w-full p-4 text-left flex justify-between items-center hover:bg-gray-50"
+            >
+              <h3 className="text-lg font-semibold text-gray-700">
+                Lending History
+              </h3>
+              <span className="text-gray-500">
+                {showHistorySection ? '▲ Hide' : '▼ Show'}
+              </span>
+            </button>
+            
+            {showHistorySection && (
+              <div className="p-6">
+                {lendingHistory.length > 0 ? (
+                  <ul className="divide-y divide-gray-100">
+                    {lendingHistory.map((record, index) => (
+                      <li key={index} className="py-3 flex justify-between">
+                        <span className="font-medium text-gray-800">{record.borrower}</span>
+                        <span className="text-gray-500">
+                          {new Date(record.date).toLocaleDateString(undefined, {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 italic">No lending history available for this volume.</p>
+                )}
+              </div>
             )}
-          </ul>
+          </div>
         </div>
       </div>
     </div>
