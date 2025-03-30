@@ -49,5 +49,6 @@ Getting the Jaipur Library Catalog up and running is a simple process:
     This command will typically open the application in your default web browser at a local address (e.g., `http://localhost:5173/`).
 
 ## Access the Live Application
-[Add after deploying, e.g., `vercel.app/jaipur-library-catalog`]
+
+https://library-catalog-theta.vercel.app/
 
